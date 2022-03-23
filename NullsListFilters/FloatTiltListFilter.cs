@@ -22,7 +22,7 @@ namespace NullsListFilters
     {
         List<TiltEntry> entries = new List<TiltEntry>();
         int repeatAmt = 0;
-        static Regex entryRegex = new Regex(@"(^|(?<type>\((ADD|SUB|DIV|MUL|SET|ABS|NEG|SQRT|RND|SIN|SIN2|COS|COS2|LOG|LOG2|TAN|TAN2)\))) *((?<range>([\-\d\.]+)->([\-\d\.]+))|(?<single>([\-\d\.]+)))");
+        static Regex entryRegex = new Regex(@"(^|(?<type>\((ADD|SUB|DIV|MUL|SET|ABS|NEG|SQRT|RND|SIN|SINADD|COS|COSADD|LOG|LOGADD|TAN|TANADD|POW)\))) *((?<range>([\-\d\.]+)->([\-\d\.]+))|(?<single>([\-\d\.]+)))");
 
         //Needed because apparently float.parse works differently in different OS languages
         static CultureInfo culture = new CultureInfo("en-US");
@@ -96,17 +96,20 @@ namespace NullsListFilters
                             case "LOG":
                                 type = TiltType.LOG;
                                 break;
-                            case "LOG2":
+                            case "LOGADD":
                                 type = TiltType.LOG2;
                                 break;
-                            case "SIN2":
+                            case "SINADD":
                                 type = TiltType.SIN2;
                                 break;
-                            case "COS2":
+                            case "COSADD":
                                 type = TiltType.COS2;
                                 break;
-                            case "TAN2":
+                            case "TANADD":
                                 type = TiltType.TAN2;
+                                break;
+                            case "POW":
+                                type = TiltType.POW;
                                 break;
                             default:
                                 break;
@@ -231,6 +234,7 @@ namespace NullsListFilters
         COS, COS2,
         LOG, LOG2,
         TAN, TAN2,
+        POW
     }
 
     [Serializable]
@@ -289,7 +293,7 @@ namespace NullsListFilters
                     if (val <= 0) return val;
                     return (float)Math.Log(val);
                 case TiltType.LOG2:
-                    if (val <= 0 || tAmt == 0) return val;
+                    if (val <= 0 || tAmt <= 0) return val;
                     return (float)Math.Log(val) + (float)Math.Log(tAmt);
                 case TiltType.SIN2:
                     return (float)Math.Sin(val) + (float)Math.Sin(tAmt);
@@ -297,6 +301,8 @@ namespace NullsListFilters
                     return (float)Math.Cos(val) + (float)Math.Cos(tAmt);
                 case TiltType.TAN2:
                     return (float)Math.Tan(val) + (float)Math.Tan(tAmt);
+                case TiltType.POW:
+                    return (float)Math.Pow(val, tAmt);
                 default:
                     return val;
             }
