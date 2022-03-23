@@ -286,8 +286,10 @@ namespace NullsListFilters
                 case TiltType.TAN:
                     return (float)Math.Tan(val);
                 case TiltType.LOG:
+                    if (val <= 0) return val;
                     return (float)Math.Log(val);
                 case TiltType.LOG2:
+                    if (val <= 0 || tAmt == 0) return val;
                     return (float)Math.Log(val) + (float)Math.Log(tAmt);
                 case TiltType.SIN2:
                     return (float)Math.Sin(val) + (float)Math.Sin(tAmt);
