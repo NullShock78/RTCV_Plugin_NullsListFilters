@@ -29,17 +29,18 @@ namespace NullsListFilters
         public string Initialize(string filePath, string[] dataLines, bool flipBytes, bool syncListViaNetcore)
         {
             //Ignore flipbytes, as this list works differently
-            int line = 2;
+            int line = 1;
             foreach (string s in dataLines)
             {
-                if (s.StartsWith("@"))
+                if (s.StartsWith("#"))
                 {
-                    if (s.Substring(1).StartsWith("REPEAT_"))
+                    if (s.Substring(1).StartsWith("REPEAT:"))
                         repeatAmt = Convert.ToInt32(s.Substring(8));
                     if (repeatAmt < 0)
                     {
                         repeatAmt = 0;
                     }
+                    continue;
                 }
                 string workingString = s.Replace("f","").Replace("F", "").Replace(" ", "").ToUpper();                
                 string origLine = workingString;
