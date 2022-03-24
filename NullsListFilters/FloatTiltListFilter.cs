@@ -21,17 +21,27 @@ namespace NullsListFilters
     public class FloatTiltListFilter : IListFilter
     {
         List<TiltEntry> entries = new List<TiltEntry>();
-        static Regex entryRegex = new Regex(@"(^|(?<type>\((ADD|SUB|DIV|MUL|SET)\))) *((?<range>([\-\d\.]+)->([\-\d\.]+))|(?<single>([\-\d\.]+)))");
+        int repeatAmt = 0;
+        static Regex entryRegex = new Regex(@"(^|(?<type>\((ADD|SUB|DIV|MUL|SET|ABS|NEG|SQRT|RND|SIN|SINADD|COS|COSADD|LOG|LOGADD|TAN|TANADD|POW)\))) *((?<range>([\-\d\.]+)->([\-\d\.]+))|(?<single>([\-\d\.]+)))");
 
         //Needed because apparently float.parse works differently in different OS languages
         static CultureInfo culture = new CultureInfo("en-US");
         public string Initialize(string filePath, string[] dataLines, bool flipBytes, bool syncListViaNetcore)
         {
             //Ignore flipbytes, as this list works differently
-            int line = 2;
+            int line = 1;
             foreach (string s in dataLines)
             {
-                
+                if (s.StartsWith("#"))
+                {
+                    if (s.Substring(1).StartsWith("REPEAT:"))
+                        repeatAmt = Convert.ToInt32(s.Substring(8));
+                    if (repeatAmt < 0)
+                    {
+                        repeatAmt = 0;
+                    }
+                    continue;
+                }
                 string workingString = s.Replace("f","").Replace("F", "").Replace(" ", "").ToUpper();                
                 string origLine = workingString;
 
@@ -62,6 +72,45 @@ namespace NullsListFilters
                                 break;
                             case "SET":
                                 type = TiltType.SET;
+                                break;
+                            case "ABS":
+                                type = TiltType.ABS;
+                                break;
+                            case "NEG":
+                                type = TiltType.NEG;
+                                break;
+                            case "SQRT":
+                                type = TiltType.SQRT;
+                                break;
+                            case "RND":
+                                type = TiltType.RND;
+                                break;
+                            case "SIN":
+                                type = TiltType.SIN;
+                                break;
+                            case "COS":
+                                type = TiltType.COS;
+                                break;
+                            case "TAN":
+                                type = TiltType.TAN;
+                                break;
+                            case "LOG":
+                                type = TiltType.LOG;
+                                break;
+                            case "LOGADD":
+                                type = TiltType.LOG2;
+                                break;
+                            case "SINADD":
+                                type = TiltType.SIN2;
+                                break;
+                            case "COSADD":
+                                type = TiltType.COS2;
+                                break;
+                            case "TANADD":
+                                type = TiltType.TAN2;
+                                break;
+                            case "POW":
+                                type = TiltType.POW;
                                 break;
                             default:
                                 break;
@@ -146,8 +195,16 @@ namespace NullsListFilters
             {
                 return passthrough;
             }
-
-            return BitConverter.GetBytes(entries[RtcCore.RND.Next(entries.Count)].Tilt(BitConverter.ToSingle(passthrough, 0)));
+            var origValue = BitConverter.ToSingle(passthrough, 0);
+            var ret = entries[RtcCore.RND.Next(entries.Count)].Tilt(origValue);
+            if (repeatAmt != 0)
+            {
+                for (int i = 0; i < repeatAmt; i++)
+                {
+                    ret = entries[RtcCore.RND.Next(entries.Count)].Tilt(ret);
+                }
+            }
+            return BitConverter.GetBytes(ret);
         }
 
         public List<string> GetStringList()
@@ -169,7 +226,16 @@ namespace NullsListFilters
         SUB = 1,
         MUL = 2,
         DIV = 3,
-        SET = 4
+        SET = 4,
+        ABS,
+        NEG,
+        SQRT,
+        RND,
+        SIN, SIN2,
+        COS, COS2,
+        LOG, LOG2,
+        TAN, TAN2,
+        POW
     }
 
     [Serializable]
@@ -210,6 +276,34 @@ namespace NullsListFilters
                     return val / tAmt;
                 case TiltType.SET:
                     return tAmt;
+                case TiltType.ABS:
+                    return Math.Abs(val);
+                case TiltType.NEG:
+                    return -Math.Abs(val);
+                case TiltType.SQRT:
+                    return (float)Math.Sqrt(val);
+                case TiltType.RND:
+                    return (float)Math.Ceiling(val);
+                case TiltType.SIN:
+                    return (float)Math.Sin(val);
+                case TiltType.COS:
+                    return (float)Math.Cos(val);
+                case TiltType.TAN:
+                    return (float)Math.Tan(val);
+                case TiltType.LOG:
+                    if (val <= 0) return val;
+                    return (float)Math.Log(val);
+                case TiltType.LOG2:
+                    if (val <= 0 || tAmt <= 0) return val;
+                    return (float)Math.Log(val) + (float)Math.Log(tAmt);
+                case TiltType.SIN2:
+                    return (float)Math.Sin(val) + (float)Math.Sin(tAmt);
+                case TiltType.COS2:
+                    return (float)Math.Cos(val) + (float)Math.Cos(tAmt);
+                case TiltType.TAN2:
+                    return (float)Math.Tan(val) + (float)Math.Tan(tAmt);
+                case TiltType.POW:
+                    return (float)Math.Pow(val, tAmt);
                 default:
                     return val;
             }
