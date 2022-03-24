@@ -24,7 +24,6 @@ namespace NullsListFilters
         List<FloatTiltEntry> limiterEntries = new List<FloatTiltEntry>();
         int repeatAmt = 0;
         static Regex entryRegex = new Regex(@"(^|(?<type>\((ADD|SUB|DIV|MUL|SET|ABS|NEG|SQRT|RND|SIN|SINADD|COS|COSADD|LOG|LOGADD|TAN|TANADD|POW|LIM)\))) *((?<range>([\-\d\.]+)->([\-\d\.]+))|(?<single>([\-\d\.]+)))");
-
         public FloatTiltListFilter() {  }
 
         //Needed because apparently float.parse works differently in different OS languages
@@ -38,7 +37,17 @@ namespace NullsListFilters
                 string s = str.Trim();
                 if (s.StartsWith("#") || s.StartsWith("//"))
                 {
-                    continue;
+                    if (s.StartsWith("#"))
+                    {
+                        if (s.Substring(1).StartsWith("REPEAT_"))
+                            if (s.Substring(1).StartsWith("REPEAT:"))
+                                repeatAmt = Convert.ToInt32(s.Substring(8));
+                        if (repeatAmt < 0)
+                        {
+                            repeatAmt = 0;
+                        }
+                        continue;
+                    }
                 }
                 string workingString = s.Replace("f","").Replace("F", "").Replace(" ", "").ToUpper();                
                 string origLine = workingString;
@@ -236,6 +245,14 @@ namespace NullsListFilters
             }
             var origValue = BitConverter.ToSingle(passthrough, 0);
             var ret = entries[RtcCore.RND.Next(entries.Count)].Modify(origValue);
+            if (repeatAmt != 0)
+            {
+                for (int i = 0; i < repeatAmt; i++)
+                {
+                    ret = entries[RtcCore.RND.Next(entries.Count)].Modify(ret);
+                }
+            }
+
             return BitConverter.GetBytes(ret);
         }
 
