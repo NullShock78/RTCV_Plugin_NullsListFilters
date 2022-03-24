@@ -20,9 +20,12 @@ namespace NullsListFilters
     [Export(typeof(IListFilter))]
     public class FloatTiltListFilter : IListFilter
     {
-        List<TiltEntry> entries = new List<TiltEntry>();
+        List<FloatTiltEntry> entries = new List<FloatTiltEntry>();
+        List<FloatTiltEntry> limiterEntries = new List<FloatTiltEntry>();
         int repeatAmt = 0;
-        static Regex entryRegex = new Regex(@"(^|(?<type>\((ADD|SUB|DIV|MUL|SET|ABS|NEG|SQRT|RND|SIN|SINADD|COS|COSADD|LOG|LOGADD|TAN|TANADD|POW)\))) *((?<range>([\-\d\.]+)->([\-\d\.]+))|(?<single>([\-\d\.]+)))");
+        static Regex entryRegex = new Regex(@"(^|(?<type>\((ADD|SUB|DIV|MUL|SET|ABS|NEG|SQRT|RND|SIN|SINADD|COS|COSADD|LOG|LOGADD|TAN|TANADD|POW|LIM)\))) *((?<range>([\-\d\.]+)->([\-\d\.]+))|(?<single>([\-\d\.]+)))");
+
+        public FloatTiltListFilter() {  }
 
         //Needed because apparently float.parse works differently in different OS languages
         static CultureInfo culture = new CultureInfo("en-US");
@@ -30,16 +33,11 @@ namespace NullsListFilters
         {
             //Ignore flipbytes, as this list works differently
             int line = 1;
-            foreach (string s in dataLines)
+            foreach (string str in dataLines)
             {
-                if (s.StartsWith("#"))
+                string s = str.Trim();
+                if (s.StartsWith("#") || s.StartsWith("//"))
                 {
-                    if (s.Substring(1).StartsWith("REPEAT:"))
-                        repeatAmt = Convert.ToInt32(s.Substring(8));
-                    if (repeatAmt < 0)
-                    {
-                        repeatAmt = 0;
-                    }
                     continue;
                 }
                 string workingString = s.Replace("f","").Replace("F", "").Replace(" ", "").ToUpper();                
@@ -50,7 +48,7 @@ namespace NullsListFilters
                 {
                     throw new Exception($"Error loading {filePath}: Unable to parse line {line}, parse failed");
                 }
-                TiltType type = TiltType.ADD;
+                FloatTiltType type = FloatTiltType.ADD;
 
                 try
                 {
@@ -62,55 +60,58 @@ namespace NullsListFilters
                             case "ADD":
                                 break;
                             case "SUB":
-                                type = TiltType.SUB;
+                                type = FloatTiltType.SUB;
                                 break;
                             case "MUL":
-                                type = TiltType.MUL;
+                                type = FloatTiltType.MUL;
                                 break;
                             case "DIV":
-                                type = TiltType.DIV;
+                                type = FloatTiltType.DIV;
                                 break;
                             case "SET":
-                                type = TiltType.SET;
+                                type = FloatTiltType.SET;
                                 break;
                             case "ABS":
-                                type = TiltType.ABS;
+                                type = FloatTiltType.ABS;
                                 break;
                             case "NEG":
-                                type = TiltType.NEG;
+                                type = FloatTiltType.NEG;
                                 break;
                             case "SQRT":
-                                type = TiltType.SQRT;
+                                type = FloatTiltType.SQRT;
                                 break;
                             case "RND":
-                                type = TiltType.RND;
+                                type = FloatTiltType.RND;
                                 break;
                             case "SIN":
-                                type = TiltType.SIN;
+                                type = FloatTiltType.SIN;
                                 break;
                             case "COS":
-                                type = TiltType.COS;
+                                type = FloatTiltType.COS;
                                 break;
                             case "TAN":
-                                type = TiltType.TAN;
+                                type = FloatTiltType.TAN;
                                 break;
                             case "LOG":
-                                type = TiltType.LOG;
+                                type = FloatTiltType.LOG;
                                 break;
                             case "LOGADD":
-                                type = TiltType.LOG2;
+                                type = FloatTiltType.LOG2;
                                 break;
                             case "SINADD":
-                                type = TiltType.SIN2;
+                                type = FloatTiltType.SIN2;
                                 break;
                             case "COSADD":
-                                type = TiltType.COS2;
+                                type = FloatTiltType.COS2;
                                 break;
                             case "TANADD":
-                                type = TiltType.TAN2;
+                                type = FloatTiltType.TAN2;
                                 break;
                             case "POW":
-                                type = TiltType.POW;
+                                type = FloatTiltType.POW;
+                                break;
+                            case "LIM":
+                                type = FloatTiltType.LIM;
                                 break;
                             default:
                                 break;
@@ -124,7 +125,6 @@ namespace NullsListFilters
                     if (m.Groups["range"].Success)
                     {
                         range = true;
-                        //6/7
                         min = float.Parse(m.Groups[4].Value, culture);
                         max = float.Parse(m.Groups[5].Value, culture);
                     }
@@ -134,9 +134,15 @@ namespace NullsListFilters
                         min = float.Parse(m.Groups[9].Value, culture);
                     }
 
-                    TiltEntry entry = new TiltEntry(type, origLine, min, max, range);
-
-                    entries.Add(entry);
+                    FloatTiltEntry entry = new FloatTiltEntry(type, origLine, min, max, range);
+                    if (type == FloatTiltType.LIM)
+                    {
+                        limiterEntries.Add(entry);
+                    }
+                    else
+                    {
+                        entries.Add(entry);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -145,7 +151,7 @@ namespace NullsListFilters
                 line++;
             }
 
-            if (entries.Count == 0)
+            if (entries.Count + limiterEntries.Count == 0)
             {
                 throw new Exception($"Error loading {filePath}: List empty");
             }
@@ -157,8 +163,26 @@ namespace NullsListFilters
 
         public bool ContainsValue(byte[] bytes)
         {
-            //Not to be used as a limiter, will never match
-            return false;
+            if (limiterEntries.Count > 0)
+            {
+                float val = BitConverter.ToSingle(bytes, 0);
+
+                int ct = limiterEntries.Count;
+                for (int i = 0; i < ct; i++)
+                {
+                    if (limiterEntries[i].LimitValue(val))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+            else
+            {
+                //No limiter available
+                return false;
+            }
         }
 
         public string GetHash()
@@ -169,10 +193,22 @@ namespace NullsListFilters
             {           
                 bList.AddRange(prefix);
                 bList.AddRange(BitConverter.GetBytes((int)e.tiltType));
-                bList.AddRange(BitConverter.GetBytes(e.range));
+                bList.AddRange(BitConverter.GetBytes(e.IsRange));
                 bList.AddRange(BitConverter.GetBytes(e.min));
                 bList.AddRange(BitConverter.GetBytes(e.max));
             }
+            byte[] prefix2 = new byte[] { (byte)'F', (byte)'l', (byte)'o', (byte)'a', (byte)'t', (byte)'T', (byte)'L', (byte)'I', (byte)'M' };
+
+            foreach (var e in limiterEntries)
+            {
+                bList.AddRange(prefix);
+                bList.AddRange(BitConverter.GetBytes((int)e.tiltType));
+                bList.AddRange(BitConverter.GetBytes(e.IsRange));
+                bList.AddRange(BitConverter.GetBytes(e.min));
+                bList.AddRange(BitConverter.GetBytes(e.max));
+            }
+
+
             MD5 hash = MD5.Create();
             hash.ComputeHash(bList.ToArray());
             string hashStr = Convert.ToBase64String(hash.Hash);
@@ -186,24 +222,20 @@ namespace NullsListFilters
 
         public byte[] GetRandomValue(string hash, int precision, byte[] passthrough = null)
         {
+
             if (passthrough == null)
             {
                 return new byte[precision]; //better than null I guess
             }
 
-            if(precision != 4 || passthrough.Length != 4)
+            if (entries.Count == 0) return passthrough; //No entries
+
+            if(precision != sizeof(float) || passthrough.Length != sizeof(float))
             {
                 return passthrough;
             }
             var origValue = BitConverter.ToSingle(passthrough, 0);
-            var ret = entries[RtcCore.RND.Next(entries.Count)].Tilt(origValue);
-            if (repeatAmt != 0)
-            {
-                for (int i = 0; i < repeatAmt; i++)
-                {
-                    ret = entries[RtcCore.RND.Next(entries.Count)].Tilt(ret);
-                }
-            }
+            var ret = entries[RtcCore.RND.Next(entries.Count)].Modify(origValue);
             return BitConverter.GetBytes(ret);
         }
 
@@ -215,98 +247,11 @@ namespace NullsListFilters
             {
                 res.Add(e.ToString());
             }
-            return res;
-        }
-    }
-
-    [Serializable]
-    public enum TiltType
-    {
-        ADD = 0,
-        SUB = 1,
-        MUL = 2,
-        DIV = 3,
-        SET = 4,
-        ABS,
-        NEG,
-        SQRT,
-        RND,
-        SIN, SIN2,
-        COS, COS2,
-        LOG, LOG2,
-        TAN, TAN2,
-        POW
-    }
-
-    [Serializable]
-    [Ceras.MemberConfig(TargetMember.All)]
-    public class TiltEntry
-    {
-        public bool range = false;
-        public float min;
-        public float max;
-        public TiltType tiltType;
-
-        string origLine;
-        //Needed for ceras
-        public TiltEntry() { }
-
-        public TiltEntry(TiltType type, string origLine, float min, float max, bool range = true)
-        {
-            this.origLine = origLine;
-            this.tiltType = type;
-            this.min = min;
-            this.max = max;
-            this.range = range;
-        }
-
-        public float Tilt(float val)
-        {
-            float tAmt = (range ? ((float)RtcCore.RND.NextDouble() * (max - min) + min) : min);
-            switch (tiltType)
+            foreach (var e in limiterEntries)
             {
-                case TiltType.ADD:
-                    return val + tAmt;
-                case TiltType.SUB:
-                    return val - tAmt;
-                case TiltType.MUL:
-                    return val * tAmt;
-                case TiltType.DIV:
-                    if (tAmt == 0) return val;
-                    return val / tAmt;
-                case TiltType.SET:
-                    return tAmt;
-                case TiltType.ABS:
-                    return Math.Abs(val);
-                case TiltType.NEG:
-                    return -Math.Abs(val);
-                case TiltType.SQRT:
-                    return (float)Math.Sqrt(val);
-                case TiltType.RND:
-                    return (float)Math.Ceiling(val);
-                case TiltType.SIN:
-                    return (float)Math.Sin(val);
-                case TiltType.COS:
-                    return (float)Math.Cos(val);
-                case TiltType.TAN:
-                    return (float)Math.Tan(val);
-                case TiltType.LOG:
-                    if (val <= 0) return val;
-                    return (float)Math.Log(val);
-                case TiltType.LOG2:
-                    if (val <= 0 || tAmt <= 0) return val;
-                    return (float)Math.Log(val) + (float)Math.Log(tAmt);
-                case TiltType.SIN2:
-                    return (float)Math.Sin(val) + (float)Math.Sin(tAmt);
-                case TiltType.COS2:
-                    return (float)Math.Cos(val) + (float)Math.Cos(tAmt);
-                case TiltType.TAN2:
-                    return (float)Math.Tan(val) + (float)Math.Tan(tAmt);
-                case TiltType.POW:
-                    return (float)Math.Pow(val, tAmt);
-                default:
-                    return val;
+                res.Add(e.ToString());
             }
+            return res;
         }
     }
 
