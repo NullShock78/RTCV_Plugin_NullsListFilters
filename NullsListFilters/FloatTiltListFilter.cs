@@ -39,15 +39,16 @@ namespace NullsListFilters
                 {
                     if (s.StartsWith("#"))
                     {
-                        if (s.Substring(1).StartsWith("REPEAT_"))
-                            if (s.Substring(1).StartsWith("REPEAT:"))
-                                repeatAmt = Convert.ToInt32(s.Substring(8));
+                        if (s.Substring(1).StartsWith("REPEAT:"))
+                           repeatAmt = Convert.ToInt32(s.Substring(8));
+
                         if (repeatAmt < 0)
                         {
                             repeatAmt = 0;
                         }
-                        continue;
                     }
+
+                    continue;
                 }
                 string workingString = s.Replace("f","").Replace("F", "").Replace(" ", "").ToUpper();                
                 string origLine = workingString;
