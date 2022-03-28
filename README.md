@@ -73,13 +73,13 @@ Key:<br>
 `SQRT`&ensp;Sets the `value` to its square root. `X` is ignored.<br>
 `RND`&ensp;&ensp;Rounds the `value` up to the nearest integral. Math.Ceiling(`value`). `X` is ignored.<br>
 `SIN`&ensp;&ensp;Sets the `value` to its Sine. Math.Sin(`value`). `X` is ignored.<br>
-`SIN2`&ensp;Sets the `value` to Math.Sin(`value`) + Math.Sin(`X`).<br>
+`SINADD`&ensp;Sets the `value` to Math.Sin(`value`) + Math.Sin(`X`).<br>
 `COS`&ensp;&ensp;Sets the `value` to its Cosine. Math.Cos(`value`). `X` is ignored.<br>
-`COS2`&ensp;Sets the `value` to Math.Cos(`value`) + Math.Cos(`X`).<br>
+`COSADD`&ensp;Sets the `value` to Math.Cos(`value`) + Math.Cos(`X`).<br>
 `TAN`&ensp;&ensp;Sets the `value` to its Tangent. Math.Tan(`value`). `X` is ignored.<br>
-`TAN2`&ensp;Sets the `value` to Math.Tan(`value`) + Math.Tan(`X`).<br>
+`TANADD`&ensp;Sets the `value` to Math.Tan(`value`) + Math.Tan(`X`).<br>
 `LOG`&ensp;&ensp;Sets the `value` to its Log. Math.Log(`value`). If `value` <= 0, the original `value` is returned. `X` is ignored.<br>
-`LOG2`&ensp;Sets the `value` to Math.Log(`value`) + Math.Log(`X`). If `value` <= 0 or `X` <= 0, the original `value` is returned.<br>
+`LOGADD`&ensp;Sets the `value` to Math.Log(`value`) + Math.Log(`X`). If `value` <= 0 or `X` <= 0, the original `value` is returned.<br>
 `POW`&ensp;&ensp;Raises `value` to the `X`th power. Math.Pow(`value`, `X`).<br>
 
 ### Notes:<br>
