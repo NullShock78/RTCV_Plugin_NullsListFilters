@@ -23,7 +23,8 @@ namespace NullsListFilters
         List<FloatTiltEntry> entries = new List<FloatTiltEntry>();
         List<FloatTiltEntry> limiterEntries = new List<FloatTiltEntry>();
         int repeatAmt = 0;
-        static Regex entryRegex = new Regex(@"(^|(?<type>\((ADD|SUB|DIV|MUL|SET|ABS|NEG|SQRT|RND|SIN|SINADD|COS|COSADD|LOG|LOGADD|TAN|TANADD|POW|LIM)\))) *((?<range>([\-\d\.]+)->([\-\d\.]+))|(?<single>([\-\d\.]+)))");
+        static Regex entryRegex = new Regex(@"(^|(?<type>\((ADD|SUB|DIV|MUL|SET|ABS|NEG|SQRT|RND|SIN|SINADD|COS|COSADD|LOG|LOGADD|TAN|TANADD|POW|LIM)\))) *((?<range>([\-\d\.]+)->([\-\d\.]+))|(?<single>([\-\d\.]+))|$)");
+        static Regex rangeRegex = new Regex(@"\#REPEAT:\s*(?<amt>\d+)", RegexOptions.IgnoreCase);
         public FloatTiltListFilter() {  }
 
         //Needed because apparently float.parse works differently in different OS languages
@@ -39,8 +40,14 @@ namespace NullsListFilters
                 {
                     if (s.StartsWith("#"))
                     {
-                        if (s.Substring(1).StartsWith("REPEAT:"))
-                           repeatAmt = Convert.ToInt32(s.Substring(8));
+                        var repeatMatch = rangeRegex.Match(s);
+                        if (repeatMatch.Success)
+                        {
+                            repeatAmt = Convert.ToInt32(repeatMatch.Groups["amt"].Value);
+                        }
+
+                        //if (s.Substring(1).StartsWith("REPEAT:"))
+                        //   repeatAmt = Convert.ToInt32(s.Substring(8));
 
                         if (repeatAmt < 0)
                         {
@@ -138,13 +145,28 @@ namespace NullsListFilters
                         min = float.Parse(m.Groups[4].Value, culture);
                         max = float.Parse(m.Groups[5].Value, culture);
                     }
-                    else
+                    else if(m.Groups["single"].Success)
                     {
                         //9
-                        min = float.Parse(m.Groups[9].Value, culture);
+                        min = float.Parse(m.Groups["single"].Value, culture);
+                    }
+                    else if(type == FloatTiltType.LOG
+                            || type == FloatTiltType.SIN
+                            || type == FloatTiltType.COS
+                            || type == FloatTiltType.TAN
+                            || type == FloatTiltType.SQRT
+                            || type == FloatTiltType.NEG
+                            || type == FloatTiltType.ABS
+                            || type == FloatTiltType.RND)
+                    {
+                         min = 1f;
+                    }
+                    else
+                    {
+                        throw new FormatException($"Specified Prefix \"({m.Groups["type"].Value})\" must have value");
                     }
 
-                    FloatTiltEntry entry = new FloatTiltEntry(type, origLine, min, max, range);
+                        FloatTiltEntry entry = new FloatTiltEntry(type, origLine, min, max, range);
                     if (type == FloatTiltType.LIM)
                     {
                         limiterEntries.Add(entry);
@@ -156,7 +178,7 @@ namespace NullsListFilters
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception($"Error loading {filePath}: Unable to parse line {line}, float parse failed. Exception:\r\n{ex}");
+                    throw new Exception($"Error loading {filePath}: Unable to parse line {line}, Exception details:\r\n{ex}");
                 }
                 line++;
             }
